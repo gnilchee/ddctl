@@ -1,9 +1,35 @@
 #!/usr/bin/env python3
 from datadog import initialize, api
-from configparser import ConfigParser
-import argparse
+from sys import argv
+from argparse import ArgumentParser
+
+# Setting up parser
+parser = ArgumentParser()
+parser.add_argument("--config",
+                    help="declare path to your ddctl.conf config file",
+                    metavar="FILE", default="ddctl.conf")
+parser.add_argument("--query",
+                    help="query datadog for a list of hosts by query",
+                    default="_empty_")
+parser.add_argument("--host", help="hostname to mute or unmute",
+                    default="_empty_")
+parser.add_argument("--hours", help="how many hour(s) to mute",
+                    type=int, default=4)
+parser.add_argument("--noend", action="store_true",
+                    help="set not end time for mute",
+                    default=False)
+parser.add_argument("--mute", action="store_true",
+                    help="mute host and schedule downtime",
+                    default="_empty_")
+parser.add_argument("--unmute", action="store_true",
+                    help="UNmute host and return to normal monitoring",
+                    default="_empty_")
+args = parser.parse_args()
+
 
 def api_initialization(config_file):
+    # imports
+    from configparser import ConfigParser
     # Pulling in API and APP Token
     try:
         config = ConfigParser()
@@ -12,21 +38,41 @@ def api_initialization(config_file):
         api_key = config['ddctl']['api_key']
         app_key = config['ddctl']['app_key']
     except Exception as err:
-        raise SystemExit('There was an issue reading the config file.')
+        raise SystemExit("There was an issue reading the config file.")
 
     # Initialize the connection
     options = {'api_key': api_key, 'app_key': app_key}
     try:
         initialize(**options)
     except Exception as err:
-        raise SystemExit('Unable to initialize due to: {}'.format(err))
+        raise SystemExit("Unable to initialize due to: {}".format(err))
 
-def mute_host(hostname):
+def hours_from_now(num_hours):
+    # imports
+    from datetime import datetime, timedelta
+    # Return POSIX timestamp for number hours specified
+    how_many_hours_from_now = datetime.now() + timedelta(hours=num_hours)
+    return '{:%s}'.format(how_many_hours_from_now)
+
+def mute_host(hostname, NOEND=False, ENDHOURS=4):
+    # Test to see if noend and/or ENDHOURS is requested
+    if args.noend:
+        NOEND=True
+    if args.hours is not 4:
+        ENDHOURS=args.hours
+    # Initialize API for use
+    api_initialization(args.config)
     # Mute the host by hostname
-    try:
-        result = api.Host.mute(hostname)
-    except Exception as err:
-        raise SystemExit('Unable to mute {0} due to: {1}'.format(hostname, err))
+    if NOEND:
+        try:
+            result = api.Host.mute(hostname)
+        except Exception as err:
+            raise SystemExit("Unable to mute {0} due to: {1}".format(hostname, err))
+    else:
+        try:
+            result = api.Host.mute(hostname, end=hours_from_now(ENDHOURS))
+        except Exception as err:
+            raise SystemExit("Unable to mute {0} due to: {1}".format(hostname, err))
     # Print successful result
     try:
         print("{0} was {1}".format(result['hostname'], result['action']))
@@ -34,11 +80,13 @@ def mute_host(hostname):
         print("NOTE: {0}".format(result['errors'][0].split('. ')[0] + '.'))
 
 def unmute_host(hostname):
+    # Initialize API for use
+    api_initialization(args.config)
     # Unmute the host by hostname
     try:
         result = api.Host.unmute(hostname)
     except Exception as err:
-        raise SystemExit('Unable to unmute {0} due to: {1}'.format(hostname, err))
+        raise SystemExit("Unable to unmute {0} due to: {1}".format(hostname, err))
     # Print successful result
     try:
         print("{0} was {1}".format(result['hostname'], result['action']))
@@ -46,46 +94,35 @@ def unmute_host(hostname):
         print("NOTE: {0}".format(result['errors'][0]))
 
 def search_for_host(query):
+    # Initialize API for use
+    api_initialization(args.config)
     # Search for host by keywords
     try:
         result = api.Infrastructure.search(q='hosts:{0}'.format(query))
     except Exception as err:
-        raise SystemExit('Unable to complete query {0} due to: {1}'.format(query, err))
+        raise SystemExit("Unable to complete query {0} due to: {1}".format(query, err))
     # Print successful result
     print("Found the following based on your query of {0}:".format(query))
     for host in result['results']['hosts']:
         print(host)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config",
-                        help="declare path to your ddctl.conf config file",
-                        metavar="FILE", default="ddctl.conf")
-    parser.add_argument("--query",
-                        help="query datadog for a list of hosts by query",
-                        default="_empty_")
-    parser.add_argument("--host", help="hostname to mute or unmute",
-                        default="_empty_")
-    parser.add_argument("--mute", action="store_true",
-                        help="mute host and schedule downtime",
-                        default="_empty_")
-    parser.add_argument("--unmute", action="store_true",
-                        help="UNmute host and return to normal monitoring",
-                        default="_empty_")
-    args = parser.parse_args()
+def _main():
+    if len(argv) < 2:
+        parser.print_help()
+        raise SystemExit(1)
 
     if not args.query == "_empty_":
-        api_initialization(args.config)
-        search_for_host(args.config)
+        search_for_host(args.query)
 
     if not args.mute == "_empty_":
         if args.host == "_empty_":
             raise SystemExit("mute argument requires a host argument")
-        api_initialization(args.config)
         mute_host(args.host)
 
     if not args.unmute == "_empty_":
         if args.host == "_empty_":
             raise SystemExit("unmute argument requires a host argument")
-        api_initialization(args.config)
         unmute_host(args.host)
+
+if __name__ == '__main__':
+    _main()
