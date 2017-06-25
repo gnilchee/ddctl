@@ -15,7 +15,7 @@ parser.add_argument("--host", help="hostname to mute or unmute",
                     default="_empty_")
 parser.add_argument("--hours", help="how many hour(s) to mute",
                     type=int, default=4)
-parser.add_argument("--noend", action="store_true",
+parser.add_argument("--forever", action="store_true",
                     help="set not end time for mute",
                     default=False)
 parser.add_argument("--mute", action="store_true",
@@ -54,16 +54,16 @@ def hours_from_now(num_hours):
     how_many_hours_from_now = datetime.now() + timedelta(hours=num_hours)
     return '{:%s}'.format(how_many_hours_from_now)
 
-def mute_host(hostname, NOEND=False, ENDHOURS=4):
-    # Test to see if noend and/or ENDHOURS is requested
-    if args.noend:
-        NOEND=True
+def mute_host(hostname, FOREVER=False, ENDHOURS=4):
+    # Test to see if FOREVER and/or ENDHOURS is requested
+    if args.forever:
+        FOREVER=True
     if args.hours is not 4:
         ENDHOURS=args.hours
     # Initialize API for use
     api_initialization(args.config)
     # Mute the host by hostname
-    if NOEND:
+    if FOREVER:
         try:
             result = api.Host.mute(hostname)
         except Exception as err:
