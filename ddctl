@@ -11,8 +11,11 @@ parser.add_argument("--config",
 parser.add_argument("--query",
                     help="query datadog for a list of hosts by query",
                     default="_empty_")
-parser.add_argument("--host", help="hostname to mute or unmute",
+parser.add_argument("--host", help="hostname to mute or unmute. \
+                    Comma ',' seperated list for multiple",
                     default="_empty_")
+parser.add_argument("--csv", help="flag to return host list with comma seperation",
+                    action="store_true", default=False)
 parser.add_argument("--hours", help="how many hour(s) to mute",
                     type=int, default=4)
 parser.add_argument("--forever", action="store_true",
@@ -34,7 +37,6 @@ def api_initialization(config_file):
     try:
         config = ConfigParser()
         config.read(config_file)
-        #config.read('ddctl.conf')
         api_key = config['ddctl']['api_key']
         app_key = config['ddctl']['app_key']
     except Exception as err:
@@ -63,37 +65,43 @@ def mute_host(hostname, FOREVER=False, ENDHOURS=4):
     # Initialize API for use
     api_initialization(args.config)
     # Mute the host by hostname
-    if FOREVER:
+    for host in hostname.split(','):
+        if host == "":
+            continue
+        if FOREVER:
+            try:
+                result = api.Host.mute(host)
+            except Exception as err:
+                raise SystemExit("Unable to mute {0} due to: {1}".format(host, err))
+        else:
+            try:
+                result = api.Host.mute(host, end=hours_from_now(ENDHOURS))
+            except Exception as err:
+                raise SystemExit("Unable to mute {0} due to: {1}".format(host, err))
+        # Print successful result
         try:
-            result = api.Host.mute(hostname)
-        except Exception as err:
-            raise SystemExit("Unable to mute {0} due to: {1}".format(hostname, err))
-    else:
-        try:
-            result = api.Host.mute(hostname, end=hours_from_now(ENDHOURS))
-        except Exception as err:
-            raise SystemExit("Unable to mute {0} due to: {1}".format(hostname, err))
-    # Print successful result
-    try:
-        print("{0} was {1}".format(result['hostname'], result['action']))
-    except KeyError:
-        print("NOTE: {0}".format(result['errors'][0].split('. ')[0] + '.'))
+            print("{0} was {1}".format(result['hostname'], result['action']))
+        except KeyError:
+            print("NOTE: {0}".format(result['errors'][0].split('. ')[0] + '.'))
 
 def unmute_host(hostname):
     # Initialize API for use
     api_initialization(args.config)
     # Unmute the host by hostname
-    try:
-        result = api.Host.unmute(hostname)
-    except Exception as err:
-        raise SystemExit("Unable to unmute {0} due to: {1}".format(hostname, err))
-    # Print successful result
-    try:
-        print("{0} was {1}".format(result['hostname'], result['action']))
-    except KeyError:
-        print("NOTE: {0}".format(result['errors'][0]))
+    for host in hostname.split(','):
+        if host == "":
+            continue
+        try:
+            result = api.Host.unmute(host)
+        except Exception as err:
+            raise SystemExit("Unable to unmute {0} due to: {1}".format(host, err))
+        # Print successful result
+        try:
+            print("{0} was {1}".format(result['hostname'], result['action']))
+        except KeyError:
+            print("NOTE: {0}".format(result['errors'][0]))
 
-def search_for_host(query):
+def search_for_host(query, CSV=False):
     # Initialize API for use
     api_initialization(args.config)
     # Search for host by keywords
@@ -102,9 +110,13 @@ def search_for_host(query):
     except Exception as err:
         raise SystemExit("Unable to complete query {0} due to: {1}".format(query, err))
     # Print successful result
-    print("Found the following based on your query of {0}:".format(query))
-    for host in result['results']['hosts']:
-        print(host)
+    if args.csv:
+        CSV=True
+    if CSV and len(result['results']['hosts']) > 1:
+        print(",".join(result['results']['hosts']))
+    else:
+        for host in result['results']['hosts']:
+            print(host)
 
 def _main():
     if len(argv) < 2:
