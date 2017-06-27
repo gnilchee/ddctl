@@ -16,8 +16,10 @@ parser.add_argument("--host", help="hostname to mute or unmute. \
                     default="_empty_")
 parser.add_argument("--csv", help="flag to return host list with comma seperation",
                     action="store_true", default=False)
+parser.add_argument("--force", help="flag to force downtime of host(s) mute",
+                    action="store_true", default=False)
 parser.add_argument("--hours", help="how many hour(s) to mute",
-                    type=int, default=4)
+                    type=int, default=2)
 parser.add_argument("--forever", action="store_true",
                     help="set no end time for mute, this overrides --hours",
                     default=False)
@@ -56,12 +58,14 @@ def hours_from_now(num_hours):
     how_many_hours_from_now = datetime.now() + timedelta(hours=num_hours)
     return '{:%s}'.format(how_many_hours_from_now)
 
-def mute_host(hostname, FOREVER=False, ENDHOURS=4):
+def mute_host(hostname, FOREVER=False, ENDHOURS=2, FORCE=False):
     # Test to see if FOREVER and/or ENDHOURS is requested
     if args.forever:
         FOREVER=True
-    if args.hours is not 4:
+    if args.hours is not 2:
         ENDHOURS=args.hours
+    if args.force:
+        FORCE=True
     # Initialize API for use
     api_initialization(args.config)
     # Mute the host by hostname
@@ -70,12 +74,18 @@ def mute_host(hostname, FOREVER=False, ENDHOURS=4):
             continue
         if FOREVER:
             try:
-                result = api.Host.mute(host)
+                if FORCE:
+                    result = api.Host.mute(host, override=True)
+                else:
+                    result = api.Host.mute(host)
             except Exception as err:
                 raise SystemExit("Unable to mute {0} due to: {1}".format(host, err))
         else:
             try:
-                result = api.Host.mute(host, end=hours_from_now(ENDHOURS))
+                if FORCE:
+                    result = api.Host.mute(host, end=hours_from_now(ENDHOURS), override=True)
+                else:
+                    result = api.Host.mute(host, end=hours_from_now(ENDHOURS))
             except Exception as err:
                 raise SystemExit("Unable to mute {0} due to: {1}".format(host, err))
         # Print successful result
