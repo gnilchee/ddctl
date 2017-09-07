@@ -2,12 +2,13 @@
 """ddctl - the simple Datadog Control command line utility
 
 Usage:
-  ddctl mute <host>... [--forever | --hours=<hrs>] [--force] [--config]
-  ddctl unmute <host>... [--config]
-  ddctl downtime (set|remove) <scope>... [--forever | --hours=<hrs>] [--config]
-  ddctl downtime list (mine|all) [--config]
-  ddctl query host <host> [--config]
-  ddctl query tags [--all|--host=<host>] [--config]
+  ddctl mute <host>... [--forever | --hours=<hrs>] [--force]
+  ddctl unmute <host>...
+  ddctl downtime remove <id>
+  ddctl downtime set <scope>... [--forever | --hours=<hrs>]
+  ddctl downtime list (mine|all)
+  ddctl query host <query>
+  ddctl query tags [--all|--by-host=<host>]
   ddctl (-h | --help)
   ddctl --version
 
@@ -17,9 +18,46 @@ Options:
 
 """
 from docopt import docopt
-from brain import *
+from brain import connector, downtime, mute, search, utils
 
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='Datadog Control v0.1')
     print(args)
+    # Muting a host (not downtime)
+    if args['mute']:
+        if args['--forever']:
+            mute.mute_host(args['<host>'], FOREVER=args['--forever'],
+                            FORCE=args['--force'])
+        elif args['--hours'] is not None:
+            mute.mute_host(args['<host>'], ENDHOURS=int(args['--hours']),
+                            FORCE=args['--force'])
+        else:
+            mute.mute_host(args['<host>'])
+    # Remove a host mute (not downtime)
+    if args['unmute']:
+        mute.unmute_host(args['<host>'])
+    # List downtimes for you or all
+    if args['downtime'] and args['list']:
+        if args['mine']:
+            downtime.get_downtimes(MY_DOWNTIMES=args['mine'])
+        if args['all']:
+            downtime.get_downtimes(ALL_DOWNTIMES=args['all'])
+    # Set/remove downtimes (not host mute)
+    if args['downtime'] and args['set']:
+        if args['--forever']:
+            downtime.create_downtime(args['<scope>'], FOREVER=args['--forever'])
+        elif args['--hours'] is not None:
+            downtime.create_downtime(args['<scope>'], ENDHOURS=int(args['--hours']))
+        else:
+            downtime.create_downtime(args['<scope>'])
+    if args['downtime'] and args['remove']:
+        downtime.remove_downtime(int(args['<id>']))
+    # Query for host or tags
+    if args['query'] and args['host']:
+        search.search_for_host(args['<query>'])
+    if args['query'] and args['tags']:
+        if args['--all']:
+            search.get_all_tags()
+        elif args['--by-host']:
+            search.get_tags_by_host(args['--by-host'])

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
+from brain.connector import dd_api_init
+from datadog import api
+from brain.utils import hours_from_now
+
+# Initialize API for use and grab requestor
+dd_login = dd_api_init()
 
 def create_downtime(scope, FOREVER=False, ENDHOURS=2):
-    # Initialize API for use and grab requestor
-    dd_login = api_initialization(args.config)
-    # Check arguments
-    if args.forever:
-        FOREVER=True
-    if args.hours is not 2:
-        ENDHOURS=args.hours
     # Create downtime
     if FOREVER:
         try:
-            result = api.Downtime.create(scope=scope, message="scheduled by ddctl for {}".format(dd_login))
+            result = api.Downtime.create(scope=scope, message="scheduled by ddctl for {}".format(dd_login['user']))
             if not result['active']:
                 raise SystemExit("I don't show the downtime as active. Please investigate.")
             else:
@@ -20,7 +19,7 @@ def create_downtime(scope, FOREVER=False, ENDHOURS=2):
             raise SystemExit("There was an error adding downtimes: {0}".format(err))
     else:
         try:
-            result = api.Downtime.create(scope=scope, end=hours_from_now(ENDHOURS), message="scheduled by ddctl for {}".format(dd_login))
+            result = api.Downtime.create(scope=scope, end=hours_from_now(ENDHOURS), message="scheduled by ddctl for {}".format(dd_login['user']))
             if not result['active']:
                 raise SystemExit("I don't show the downtime as active. Please investigate.")
             else:
@@ -28,20 +27,18 @@ def create_downtime(scope, FOREVER=False, ENDHOURS=2):
         except Exception as err:
             raise SystemExit("There was an error adding downtimes: {0}".format(err))
 
-def get_downtimes():
-    # Initialize API for use and grab requestor
-    dd_login = api_initialization(args.config)
+def get_downtimes(MY_DOWNTIMES=False, ALL_DOWNTIMES=False):
     # List downtimes owned by you
-    if args.list_my_downtimes and args.list_all_downtimes == "_empty_":
+    if MY_DOWNTIMES and not ALL_DOWNTIMES:
         try:
             result = api.Downtime.get_all(current_only=True)
         except Exception as err:
             raise SystemExit("Unable to get your downtimes due to: {0}".format(err))
-        print("Downtimes created by {}:".format(dd_login))
+        print("Downtimes created by {}:".format(dd_login['user']))
         count = 0
         for downtime in result:
             if downtime['message'] is not None \
-                and downtime['message'].split()[-1] == dd_login:
+                and downtime['message'].split()[-1] == dd_login['user']:
                 count += 1
                 print("Scope: '{scope}' has id: {id}"
                     .format(scope=downtime['scope'],
@@ -49,7 +46,7 @@ def get_downtimes():
         if count == 0:
             print("None.")
     # Get all downtimes
-    if args.list_all_downtimes and args.list_my_downtimes == "_empty_":
+    if ALL_DOWNTIMES and not MY_DOWNTIMES:
         try:
             result = api.Downtime.get_all(current_only=True)
         except Exception as err:
@@ -62,12 +59,10 @@ def get_downtimes():
                         api.Monitor.get(downtime['monitor_id'])['name'],
                     id=downtime['id']))
         else:
-            print("There are no current downtimes.".format(dd_login))
+            print("There are no current downtimes.")
             raise SystemExit(0)
 
 def remove_downtime(id):
-    # Initialize API for use and grab requestor
-    dd_login = api_initialization(args.config)
     # Delete the downtime
     try:
         api.Downtime.delete(id)
@@ -81,4 +76,4 @@ def remove_downtime(id):
         else:
             print("Downtime monitor delete request was successful.")
     except Exception as err:
-        raise SystemExit("Ran into an issue confirming downtime delete was successful: {err}".format(id=id, err=err))
+        raise SystemExit("Ran into an issue confirming downtime delete was successful: {err}".format(err=err))
