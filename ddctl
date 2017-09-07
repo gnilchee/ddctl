@@ -23,7 +23,6 @@ from brain import connector, downtime, mute, search, utils
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='Datadog Control v0.1')
-    print(args)
     # Muting a host (not downtime)
     if args['mute']:
         if args['--forever']:
