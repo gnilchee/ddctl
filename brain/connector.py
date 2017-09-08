@@ -15,7 +15,7 @@ def dd_api_init(config_file=join('/', str(Path.home()), '.ddctl', 'credentials')
             app_key  = config['ddctl']['app_key']
             dd_login = config['ddctl']['dd_login']
         else:
-            raise SystemExit("Config file not found at {}".format(str(config_file)))
+            raise SystemExit("Config file not found at {}".format(config_file))
     except Exception as err:
         raise SystemExit("There is an issue near {} in the config.".format(err))
     # Initialize the connection

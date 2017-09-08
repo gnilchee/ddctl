@@ -77,3 +77,40 @@ def remove_downtime(id):
             print("Downtime monitor delete request was successful.")
     except Exception as err:
         raise SystemExit("Ran into an issue confirming downtime delete was successful: {err}".format(err=err))
+
+def remove_downtimes_by_scope(scope):
+    # Grab the current downtimes
+    try:
+        api_response = api.Downtime.get_all(current_only=True)
+    except Exception as err:
+        raise SystemExit("Issue grabbing all current downtimes: {err}".format(err=err))
+    # Create two lists for work
+    response_list = []
+    scope_match_list = []
+    # Lets do this
+    for resp in api_response:
+        response_list.append({'id': resp['id'], 'scope': resp['scope']})
+    # Comparing scope lists using sets
+    for item in response_list:
+        if set(scope) == set(item['scope']):
+            scope_match_list.append(item)
+    if len(scope_match_list) < 1:
+        raise SystemExit("There were no exact scope matches.")
+    elif len(scope_match_list) > 1:
+        raise SystemExit("There were multiple matches, try removing by id.")
+    elif len(scope_match_list) == 1:
+        # Delete downtime by scope
+        scope_id = scope_match_list[0]['id']
+        try:
+            api.Downtime.delete(scope_id)
+        except Exception as err:
+            raise SystemExit("Ran into an issue removing downtime by scope: {err}".format(err=err))
+        # Confirm the downtime was deleted
+        try:
+            result = api.Downtime.get(scope_id)
+            if result['active']:
+                raise SystemExit("ERROR: I still show the downtime as active for your scope.")
+            else:
+                print("Downtime monitor delete request was successful.")
+        except Exception as err:
+            raise SystemExit("Ran into an issue confirming downtime delete was successful: {err}".format(err=err))

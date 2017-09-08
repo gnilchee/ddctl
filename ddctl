@@ -5,6 +5,7 @@ Usage:
   ddctl mute <host>... [--forever | --hours=<hrs>] [--force]
   ddctl unmute <host>...
   ddctl downtime remove <id>
+  ddctl downtime remove by-scope <scope>...
   ddctl downtime set <scope>... [--forever | --hours=<hrs>]
   ddctl downtime list (mine|all)
   ddctl query host <query>
@@ -51,7 +52,10 @@ if __name__ == '__main__':
         else:
             downtime.create_downtime(args['<scope>'])
     if args['downtime'] and args['remove']:
-        downtime.remove_downtime(int(args['<id>']))
+        if args['by-scope']:
+            downtime.remove_downtimes_by_scope(args['<scope>'])
+        else:
+            downtime.remove_downtime(int(args['<id>']))
     # Query for host or tags
     if args['query'] and args['host']:
         search.search_for_host(args['<query>'])
