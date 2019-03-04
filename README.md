@@ -1,6 +1,7 @@
 # ddctl - Simple Datadog Control
 #### Requirements
-* `pip install -r requirements.txt`
+* Python 3 - on ubuntu: `sudo apt-get install python3-pip`
+* `pip3 install -r requirements.txt`
 * API and APP key from Datadog
 
 #### Setup config for Datadog API
